@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
+import 'auth_screen.dart';
+import 'auth_service.dart';
 import 'database_helper.dart';
 import 'firebase_options.dart';
 
@@ -29,7 +32,46 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'My Study Planner',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: StudyPlannerHome(database: database),
+      home: database != null
+          ? StudyPlannerHome(database: database)
+          : AuthGate(),
+    );
+  }
+}
+
+// LOGIC: Check authentication before opening the dashboard
+class AuthGate extends StatelessWidget {
+  AuthGate({super.key});
+
+  final AuthService _authService = AuthService();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: _authService.authStateChanges,
+      builder: (context, snapshot) {
+        // Wait while Firebase checks the current session.
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Display an error if authentication cannot be checked.
+        if (snapshot.hasError) {
+          return const Scaffold(
+            body: Center(child: Text('Could not verify your account.')),
+          );
+        }
+
+        // Open the dashboard if the user is authenticated.
+        if (snapshot.hasData) {
+          return const StudyPlannerHome();
+        }
+
+        // Otherwise, request the user to sign in.
+        return const AuthScreen();
+      },
     );
   }
 }
@@ -174,7 +216,29 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Study Planner'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('My Study Planner'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () async {
+              try {
+                await AuthService().logout();
+              } catch (error) {
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not sign out. Please try again.'),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
 
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
