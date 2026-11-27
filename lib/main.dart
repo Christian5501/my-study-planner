@@ -1,12 +1,18 @@
-
 import 'package:material_ui/material_ui.dart';
-import 'database_helper.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-// LOGIC: Initialize the real database before starting the application
+import 'database_helper.dart';
+import 'firebase_options.dart';
+
+// LOGIC: Initialize Firebase and the local database
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await DatabaseHelper.instance.database;
+  // Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize storage for Android and web
+  await DatabaseHelper.instance.initialize();
 
   runApp(const MyApp());
 }
@@ -15,19 +21,14 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   final DatabaseHelper? database;
 
-  const MyApp({
-    super.key,
-    this.database,
-  });
+  const MyApp({super.key, this.database});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'My Study Planner',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: StudyPlannerHome(database: database),
     );
   }
@@ -37,10 +38,7 @@ class MyApp extends StatelessWidget {
 class StudyPlannerHome extends StatefulWidget {
   final DatabaseHelper? database;
 
-  const StudyPlannerHome({
-    super.key,
-    this.database,
-  });
+  const StudyPlannerHome({super.key, this.database});
 
   @override
   State<StudyPlannerHome> createState() => _StudyPlannerHomeState();
@@ -48,8 +46,7 @@ class StudyPlannerHome extends StatefulWidget {
 
 class _StudyPlannerHomeState extends State<StudyPlannerHome> {
   // LOGIC: Select the database used by this screen
-  DatabaseHelper get database =>
-      widget.database ?? DatabaseHelper.instance;
+  DatabaseHelper get database => widget.database ?? DatabaseHelper.instance;
 
   // LOGIC: Store goals loaded from the database
   List<Map<String, dynamic>> goals = [];
@@ -58,10 +55,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
 
   // LOGIC: Calculate total study hours
   int get totalHours {
-    return goals.fold<int>(
-      0,
-      (sum, goal) => sum + (goal['hours'] as int),
-    );
+    return goals.fold<int>(0, (sum, goal) => sum + (goal['hours'] as int));
   }
 
   // LOGIC: Count completed goals
@@ -99,9 +93,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not load study goals.'),
-        ),
+        const SnackBar(content: Text('Could not load study goals.')),
       );
     }
   }
@@ -110,9 +102,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
   Future<void> openAddGoalScreen() async {
     final newGoal = await Navigator.push<Map<String, dynamic>>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const AddGoalScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const AddGoalScreen()),
     );
 
     if (!mounted || newGoal == null) return;
@@ -125,28 +115,20 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
 
       // CONNECTION: Add the saved goal to the screen
       setState(() {
-        goals.add({
-          ...newGoal,
-          'id': id,
-        });
+        goals.add({...newGoal, 'id': id});
       });
     } catch (error) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save the study goal.'),
-        ),
+        const SnackBar(content: Text('Could not save the study goal.')),
       );
     }
   }
 
   // LOGIC: Update completion status in SQLite
   Future<void> toggleGoal(int index, bool? value) async {
-    final updatedGoal = {
-      ...goals[index],
-      'done': value ?? false,
-    };
+    final updatedGoal = {...goals[index], 'done': value ?? false};
 
     try {
       // CONNECTION: Update the database
@@ -161,9 +143,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not update the study goal.'),
-        ),
+        const SnackBar(content: Text('Could not update the study goal.')),
       );
     }
   }
@@ -174,9 +154,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
 
     try {
       // CONNECTION: Delete the goal from the database
-      await database.deleteGoal(
-        goal['id'] as int,
-      );
+      await database.deleteGoal(goal['id'] as int);
 
       if (!mounted) return;
 
@@ -187,9 +165,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not delete the study goal.'),
-        ),
+        const SnackBar(content: Text('Could not delete the study goal.')),
       );
     }
   }
@@ -198,15 +174,10 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Study Planner'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('My Study Planner'), centerTitle: true),
 
       body: isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // STATIC: Dashboard heading
@@ -214,10 +185,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
                   padding: EdgeInsets.all(16),
                   child: Text(
                     'My Study Goals',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                 ),
 
@@ -271,9 +239,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                'Tap the + button to add your first goal.',
-                              ),
+                              Text('Tap the + button to add your first goal.'),
                             ],
                           ),
                         )
@@ -303,9 +269,7 @@ class _StudyPlannerHomeState extends State<StudyPlannerHome> {
                                         : TextDecoration.none,
                                   ),
                                 ),
-                                subtitle: Text(
-                                  '${goal['hours']} hours',
-                                ),
+                                subtitle: Text('${goal['hours']} hours'),
                                 trailing: IconButton(
                                   icon: const Icon(
                                     Icons.delete,
@@ -349,24 +313,14 @@ class StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 14,
-          horizontal: 6,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
         child: Column(
           children: [
-            Icon(
-              icon,
-              size: 25,
-              color: Colors.blue,
-            ),
+            Icon(icon, size: 25, color: Colors.blue),
             const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -391,11 +345,9 @@ class AddGoalScreen extends StatefulWidget {
 
 class _AddGoalScreenState extends State<AddGoalScreen> {
   // LOGIC: Controllers for the input fields
-  final TextEditingController subjectController =
-      TextEditingController();
+  final TextEditingController subjectController = TextEditingController();
 
-  final TextEditingController hoursController =
-      TextEditingController();
+  final TextEditingController hoursController = TextEditingController();
 
   // LOGIC: Validate and return the new goal
   void saveGoal() {
@@ -403,32 +355,21 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     final hours = int.tryParse(hoursController.text.trim());
 
     if (subject.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a subject.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a subject.')));
       return;
     }
 
     if (hours == null || hours <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid number of hours.'),
-        ),
+        const SnackBar(content: Text('Please enter a valid number of hours.')),
       );
       return;
     }
 
     // CONNECTION: Return the goal to the main screen
-    Navigator.pop(
-      context,
-      {
-        'subject': subject,
-        'hours': hours,
-        'done': false,
-      },
-    );
+    Navigator.pop(context, {'subject': subject, 'hours': hours, 'done': false});
   }
 
   // LOGIC: Release controllers when the screen is removed
@@ -443,9 +384,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Study Goal'),
-      ),
+      appBar: AppBar(title: const Text('Add Study Goal')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
